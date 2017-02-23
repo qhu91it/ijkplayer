@@ -663,7 +663,8 @@ static int decode_video(Ijk_VideoToolBox_Opaque* context, AVCodecContext *avctx,
                 return ret;
             }
 
-            ret = avcodec_decode_video2(new_avctx, frame, &got_picture, avpkt);
+//            ret = avcodec_decode_video2(new_avctx, frame, &got_picture, avpkt);
+            ret = AVDecode(new_avctx, frame, &got_picture, avpkt);
             if (ret < 0) {
                 avcodec_free_context(&new_avctx);
                 return ret;

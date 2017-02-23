@@ -398,7 +398,8 @@ static int decoder_decode_frame(FFPlayer *ffp, Decoder *d, AVFrame *frame, AVSub
 
         switch (d->avctx->codec_type) {
             case AVMEDIA_TYPE_VIDEO: {
-                ret = avcodec_decode_video2(d->avctx, frame, &got_frame, &d->pkt_temp);
+//                ret = avcodec_decode_video2(d->avctx, frame, &got_frame, &d->pkt_temp);
+                ret = AVDecode(d->avctx, frame, &got_frame, &d->pkt_temp);
                 if (got_frame) {
                     ffp->stat.vdps = SDL_SpeedSamplerAdd(&ffp->vdps_sampler, FFP_SHOW_VDPS_AVCODEC, "vdps[avcodec]");
                     if (ffp->decoder_reorder_pts == -1) {
@@ -452,6 +453,33 @@ static int decoder_decode_frame(FFPlayer *ffp, Decoder *d, AVFrame *frame, AVSub
     } while (!got_frame && !d->finished);
 
     return got_frame;
+}
+
+int AVDecode(AVCodecContext *avctx, AVFrame *frame, int *got_frame, AVPacket *pkt)
+{
+    int ret;
+    
+    *got_frame = 0;
+    
+    if (pkt) {
+        ret = avcodec_send_packet(avctx, pkt);
+        // In particular, we don't expect AVERROR(EAGAIN), because we read all
+        // decoded frames with avcodec_receive_frame() until done.
+        if (ret < 0) {
+            av_packet_unref(pkt);
+            return ret == AVERROR_EOF ? 0 : ret;
+        }
+    }
+    
+    ret = avcodec_receive_frame(avctx, frame);
+    if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
+        //        av_frame_unref(frame);
+        return ret;
+    }
+    if (ret >= 0)
+        *got_frame = 1;
+    
+    return 0;
 }
 
 static void decoder_destroy(Decoder *d) {
