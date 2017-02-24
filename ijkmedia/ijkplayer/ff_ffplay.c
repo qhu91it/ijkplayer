@@ -326,32 +326,64 @@ static int packet_queue_get(PacketQueue *q, AVPacket *pkt, int block, int *seria
     return ret;
 }
 
-static int packet_queue_get_or_buffering(FFPlayer *ffp, PacketQueue *q, AVPacket *pkt, int *serial, int *finished)
-{
-    assert(finished);
-    if (!ffp->packet_buffering)
-        return packet_queue_get(q, pkt, 1, serial);
+//static int packet_queue_get_or_buffering(FFPlayer *ffp, PacketQueue *q, AVPacket *pkt, int *serial, int *finished)
+//{
+//    assert(finished);
+//    if (!ffp->packet_buffering)
+//        return packet_queue_get(q, pkt, 1, serial);
+//
+//    while (1) {
+//        int new_packet = packet_queue_get(q, pkt, 0, serial);
+//        if (new_packet < 0)
+//            return -1;
+//        else if (new_packet == 0) {
+//            if (q->is_buffer_indicator && !*finished)
+//                ffp_toggle_buffering(ffp, 1);
+//            new_packet = packet_queue_get(q, pkt, 1, serial);
+//            if (new_packet < 0)
+//                return -1;
+//        }
+//
+//        if (*finished == *serial) {
+//            av_packet_unref(pkt);
+//            continue;
+//        }
+//        else
+//            break;
+//    }
+//
+//    return 1;
+//}
 
+/**
+ * @info fix play rtsp
+ * https://github.com/Bilibili/ijkplayer/issues/2234
+ */
+static int packet_queue_get_or_buffering(FFPlayer *ffp, PacketQueue *q, AVPacket *pkt, int *serial, int finished)
+{
     while (1) {
-        int new_packet = packet_queue_get(q, pkt, 0, serial);
+        int new_packet = packet_queue_get(q, pkt, 1, serial);
         if (new_packet < 0)
-            return -1;
+        {
+            new_packet = packet_queue_get(q, pkt, 0, serial);
+            if(new_packet < 0)
+                return -1;
+        }
         else if (new_packet == 0) {
-            if (q->is_buffer_indicator && !*finished)
-                ffp_toggle_buffering(ffp, 1);
+            if (!finished)
+            ffp_toggle_buffering(ffp, 1);
             new_packet = packet_queue_get(q, pkt, 1, serial);
             if (new_packet < 0)
                 return -1;
         }
-
-        if (*finished == *serial) {
+        if (finished == *serial) {
             av_packet_unref(pkt);
             continue;
         }
         else
             break;
     }
-
+    
     return 1;
 }
 
