@@ -367,21 +367,21 @@ static int packet_queue_get_or_buffering(FFPlayer *ffp, PacketQueue *q, AVPacket
         {
             new_packet = packet_queue_get(q, pkt, 0, serial);
             if(new_packet < 0)
-                return -1;
+            return -1;
         }
         else if (new_packet == 0) {
             if (!finished)
             ffp_toggle_buffering(ffp, 1);
             new_packet = packet_queue_get(q, pkt, 1, serial);
             if (new_packet < 0)
-                return -1;
+            return -1;
         }
         if (finished == *serial) {
             av_packet_unref(pkt);
             continue;
         }
         else
-            break;
+        break;
     }
     
     return 1;
@@ -414,7 +414,7 @@ static int decoder_decode_frame(FFPlayer *ffp, Decoder *d, AVFrame *frame, AVSub
             do {
                 if (d->queue->nb_packets == 0)
                     SDL_CondSignal(d->empty_queue_cond);
-                if (packet_queue_get_or_buffering(ffp, d->queue, &pkt, &d->pkt_serial, &d->finished) < 0)
+                if (packet_queue_get_or_buffering(ffp, d->queue, &pkt, &d->pkt_serial, d->finished) < 0)
                     return -1;
                 if (pkt.data == flush_pkt.data) {
                     avcodec_flush_buffers(d->avctx);
@@ -431,7 +431,7 @@ static int decoder_decode_frame(FFPlayer *ffp, Decoder *d, AVFrame *frame, AVSub
         switch (d->avctx->codec_type) {
             case AVMEDIA_TYPE_VIDEO: {
 //                ret = avcodec_decode_video2(d->avctx, frame, &got_frame, &d->pkt_temp);
-                ret = AVDecode(d->avctx, frame, &got_frame, &d->pkt_temp);
+                ret = avcodec_decode(d->avctx, frame, &got_frame, &d->pkt_temp);
                 if (got_frame) {
                     ffp->stat.vdps = SDL_SpeedSamplerAdd(&ffp->vdps_sampler, FFP_SHOW_VDPS_AVCODEC, "vdps[avcodec]");
                     if (ffp->decoder_reorder_pts == -1) {
@@ -487,7 +487,7 @@ static int decoder_decode_frame(FFPlayer *ffp, Decoder *d, AVFrame *frame, AVSub
     return got_frame;
 }
 
-int AVDecode(AVCodecContext *avctx, AVFrame *frame, int *got_frame, AVPacket *pkt)
+int avcodec_decode(AVCodecContext *avctx, AVFrame *frame, int *got_frame, AVPacket *pkt)
 {
     int ret;
     
@@ -509,7 +509,7 @@ int AVDecode(AVCodecContext *avctx, AVFrame *frame, int *got_frame, AVPacket *pk
         return ret;
     }
     if (ret >= 0)
-        *got_frame = 1;
+    *got_frame = 1;
     
     return 0;
 }
@@ -2814,7 +2814,7 @@ static int read_thread(void *arg)
     }
     /* offset should be seeked*/
     if (ffp->seek_at_start > 0) {
-        ffp_seek_to_l(ffp, ffp->seek_at_start);
+        ffp_seek_to_l(ffp, (long)(ffp->seek_at_start));
     }
 
     for (;;) {
@@ -3882,7 +3882,7 @@ int ffp_packet_queue_get(PacketQueue *q, AVPacket *pkt, int block, int *serial)
 
 int ffp_packet_queue_get_or_buffering(FFPlayer *ffp, PacketQueue *q, AVPacket *pkt, int *serial, int *finished)
 {
-    return packet_queue_get_or_buffering(ffp, q, pkt, serial, finished);
+    return packet_queue_get_or_buffering(ffp, q, pkt, serial, *finished);
 }
 
 int ffp_packet_queue_put(PacketQueue *q, AVPacket *pkt)
@@ -3958,7 +3958,7 @@ void ffp_track_statistic_l(FFPlayer *ffp, AVStream *st, PacketQueue *q, FFTrackC
         cache->packets = q->nb_packets;
     }
 
-    if (st && st->time_base.den > 0 && st->time_base.num > 0) {
+    if (q && st && st->time_base.den > 0 && st->time_base.num > 0) {
         cache->duration = q->duration * av_q2d(st->time_base) * 1000;
     }
 }
