@@ -359,7 +359,7 @@ static int packet_queue_get(PacketQueue *q, AVPacket *pkt, int block, int *seria
  * @info fix play rtsp
  * https://github.com/Bilibili/ijkplayer/issues/2234
  */
-static int packet_queue_get_or_buffering(FFPlayer *ffp, PacketQueue *q, AVPacket *pkt, int *serial, int finished)
+static int packet_queue_get_or_buffering(FFPlayer *ffp, PacketQueue *q, AVPacket *pkt, int *serial, int *finished)
 {
     while (1) {
         int new_packet = packet_queue_get(q, pkt, 1, serial);
@@ -376,7 +376,7 @@ static int packet_queue_get_or_buffering(FFPlayer *ffp, PacketQueue *q, AVPacket
             if (new_packet < 0)
             return -1;
         }
-        if (finished == *serial) {
+        if (*finished == *serial) {
             av_packet_unref(pkt);
             continue;
         }
@@ -414,7 +414,7 @@ static int decoder_decode_frame(FFPlayer *ffp, Decoder *d, AVFrame *frame, AVSub
             do {
                 if (d->queue->nb_packets == 0)
                     SDL_CondSignal(d->empty_queue_cond);
-                if (packet_queue_get_or_buffering(ffp, d->queue, &pkt, &d->pkt_serial, d->finished) < 0)
+                if (packet_queue_get_or_buffering(ffp, d->queue, &pkt, &d->pkt_serial, &d->finished) < 0)
                     return -1;
                 if (pkt.data == flush_pkt.data) {
                     avcodec_flush_buffers(d->avctx);
@@ -3882,7 +3882,7 @@ int ffp_packet_queue_get(PacketQueue *q, AVPacket *pkt, int block, int *serial)
 
 int ffp_packet_queue_get_or_buffering(FFPlayer *ffp, PacketQueue *q, AVPacket *pkt, int *serial, int *finished)
 {
-    return packet_queue_get_or_buffering(ffp, q, pkt, serial, *finished);
+    return packet_queue_get_or_buffering(ffp, q, pkt, serial, finished);
 }
 
 int ffp_packet_queue_put(PacketQueue *q, AVPacket *pkt)
